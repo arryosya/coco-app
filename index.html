@@ -18,7 +18,8 @@
     .phone { border-radius:32px; box-shadow:0 20px 60px rgba(120,80,60,.25); }
   }
 
-  .header { padding:calc(env(safe-area-inset-top) + 16px) 20px 12px; background:linear-gradient(180deg,#fff6ec,#fffdf8); display:flex; align-items:center; gap:12px; border-bottom:1px solid #f3e8dc; }
+  .header { padding:calc(env(safe-area-inset-top) + 12px) 12px 10px; background:linear-gradient(180deg,#fff6ec,#fffdf8); display:flex; align-items:center; gap:8px; flex-wrap:wrap; border-bottom:1px solid #f3e8dc; }
+  .header > div:nth-child(2) { flex-shrink:0; }
   .avatar { width:44px; height:44px; border-radius:50%; background:#ffe08a; display:flex; align-items:center; justify-content:center; font-size:24px; box-shadow:0 2px 6px rgba(200,150,50,.3); }
   .header .name { font-weight:700; font-size:17px; color:#4a3728; }
   .header .status { font-size:12px; color:#b09680; }
@@ -32,7 +33,8 @@
   .row.me { flex-direction:row-reverse; }
   @keyframes pop { from { opacity:0; transform:translateY(8px);} to {opacity:1; transform:none;} }
   .mini-avatar { width:28px; height:28px; border-radius:50%; background:#ffe08a; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
-  .bubble { max-width:75%; padding:10px 14px; border-radius:18px; font-size:14.5px; line-height:1.55; white-space:pre-wrap; }
+  .bubble { width:fit-content; max-width:78%; min-width:2em; padding:10px 14px; border-radius:18px; font-size:14.5px; line-height:1.55; white-space:pre-wrap; word-break:keep-all; overflow-wrap:break-word; }
+  .icon-btn { padding:7px 9px; font-size:14px; }
   .row:not(.me) .bubble { background:#fff1e0; color:#4a3728; border-bottom-left-radius:6px; }
   .row.me .bubble { background:#6f8dfb; color:#fff; border-bottom-right-radius:6px; }
   .typing .bubble span { display:inline-block; width:6px; height:6px; margin:0 2px; background:#c9a87f; border-radius:50%; animation:blink 1.2s infinite; }
@@ -260,7 +262,7 @@ function speakNow(text){
     .replace(/[•⭐~]/g, ' ')
     .replace(/ㅋ+|ㅎ+/g, '');
   const u = new SpeechSynthesisUtterance(clean);
-  u.lang = 'ko-KR'; u.rate = P().rate; u.pitch = P().pitch; // 페르소나별 목소리 톤
+  u.lang = 'ko-KR'; u.rate = Math.min(P().rate * 1.2, 1.4); u.pitch = P().pitch; // 페르소나별 톤, 전체적으로 빠르게
   const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('ko'));
   if(v) u.voice = v;
   speechSynthesis.speak(u);
@@ -328,8 +330,17 @@ async function askCoco(mode){
       now: new Date().toTimeString().slice(0,5),
       persona: { name: P().name, style: P().style } })
   });
-  if(!res.ok) throw new Error('api ' + res.status);
+  if(!res.ok){
+    let detail = '' + res.status;
+    try { const j = await res.json(); detail = j.detail || j.error || detail; } catch(e){}
+    throw new Error(detail);
+  }
   return await res.json();
+}
+let errNoted = false;
+function apiErrorNote(e){ // 연결 실패를 숨기지 않고 보여줌
+  if(errNoted) return; errNoted = true;
+  addNote('⚠️ Claude 연결 실패: ' + String(e.message).slice(0,200) + ' — 임시 모드로 대답 중이에요');
 }
 
 function findTask(txt){
@@ -370,6 +381,7 @@ async function morningGreeting(){
     applyResult(out);
   } catch(e){
     hideTyping();
+    apiErrorNote(e);
     morningGreetingLocal(); // API 없이도 동작 (규칙 기반)
   }
 }
@@ -411,7 +423,7 @@ function send(){
   showTyping();
   askCoco('chat')
     .then(out=>{ hideTyping(); applyResult(out); })
-    .catch(()=>{ hideTyping(); ruleReply(text); });
+    .catch(e=>{ hideTyping(); apiErrorNote(e); ruleReply(text); });
 }
 
 // ---------- API 없을 때 규칙 기반 대체 ----------
@@ -611,7 +623,7 @@ function fireCheckin(hm){
   showTyping();
   askCoco('checkin')
     .then(out => { hideTyping(); applyResult(out); notifyIfHidden(out.reply); })
-    .catch(() => { hideTyping(); notifyIfHidden(checkinLocal(hm)); });
+    .catch(e => { hideTyping(); apiErrorNote(e); notifyIfHidden(checkinLocal(hm)); });
 }
 function checkinLocal(hm){
   const pending = state.tasks.filter(t=>!t.done);
