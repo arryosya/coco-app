@@ -107,6 +107,18 @@
     <div id="personaList"></div>
   </div>
 </div>
+<div class="drawer" id="nameDrawer">
+  <div class="drawer-panel">
+    <h3>👋 반가워! 뭐라고 불러줄까?</h3>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <input id="nameInput" placeholder="이름 또는 별명" maxlength="12"
+        style="flex:1; border:1.5px solid #eee0d0; border-radius:12px; padding:10px 14px; font-size:16px; color:#4a3728;"
+        onkeydown="if(event.key==='Enter')submitName()">
+      <button class="send" onclick="submitName()">시작!</button>
+    </div>
+    <p class="empty" style="margin-top:10px;">친구들이 이 이름으로 불러줘요. 나중에 왼쪽 위 동그라미(프로필)를 누르면 바꿀 수 있어요.</p>
+  </div>
+</div>
 <div class="drawer" id="checkinDrawer" onclick="if(event.target===this)closeCheckinDrawer()">
   <div class="drawer-panel">
     <h3>⏰ 먼저 말 걸어줄 시간</h3>
@@ -131,7 +143,7 @@ const store = {
   set(k,v){ mem[k]=v; try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
 };
 
-const USER = '미라';
+let USER = ''; // 사용자가 직접 설정 (첫 접속 시 물어봄)
 
 // ---------- 페르소나 20종 ----------
 const PERSONAS = {
@@ -328,7 +340,7 @@ async function askCoco(mode){
     headers:{ 'content-type':'application/json' },
     body: JSON.stringify({ mode, messages: history, tasks: state.tasks, worries: state.worries, userName: USER, today: todayStr(),
       now: new Date().toTimeString().slice(0,5),
-      persona: { name: P().name, style: P().style } })
+      persona: { name: P().name, style: P().style.split('미라').join(USER || '친구') } })
   });
   if(!res.ok){
     let detail = '' + res.status;
@@ -542,7 +554,7 @@ function applyPersonaHeader(){
   const p = P();
   document.getElementById('avatarEl').textContent = p.emoji;
   document.getElementById('nameEl').textContent = p.name;
-  document.getElementById('status').textContent = USER + '의 친구 · ' + p.desc;
+  document.getElementById('status').textContent = (USER || '너') + '의 친구 · ' + p.desc;
   document.getElementById('taskDrawerTitle').textContent = '📋 ' + p.name + '이(가) 기억하고 있는 것들';
 }
 function openPersonaDrawer(){
@@ -673,22 +685,50 @@ function selectPersona(id){
     state.persona = id; persist();
     applyPersonaHeader();
     addNote('🎭 이제 '+P().name+'와(과) 대화 중 — 기억(할 일·걱정)은 그대로 이어져요');
-    addBubble('coco', INTROS[id] || '안녕!');
+    addBubble('coco', (INTROS[id] || '안녕!').split('미라').join(USER || '친구'));
   }
   closePersonaDrawer();
 }
 
+// ---------- 이름 설정 ----------
+function openNameDrawer(){
+  document.getElementById('nameInput').value = state.userName || '';
+  document.getElementById('nameDrawer').classList.add('open');
+}
+function submitName(){
+  const v = document.getElementById('nameInput').value.trim();
+  if(!v) return;
+  const first = !state.userName;
+  state.userName = v; USER = v; persist();
+  document.getElementById('nameDrawer').classList.remove('open');
+  applyPersonaHeader();
+  if(first) boot();
+  else addNote('✏️ 이제 "'+USER+'"라고 부를게!');
+}
+document.getElementById('avatarEl').style.cursor = 'pointer';
+document.getElementById('avatarEl').onclick = openNameDrawer;
+
 // ---------- 시작 ----------
-applyPersonaHeader();
 voiceOn = !!state.voiceOn;
 document.getElementById('voiceBtn').textContent = voiceOn ? '🔊' : '🔇';
 if('speechSynthesis' in window) speechSynthesis.getVoices(); // 목소리 목록 미리 로드
-if(state.lastVisit !== todayStr() || !state.chat.length){
-  state.lastVisit = todayStr(); state.chat = []; persist();
-  morningGreeting();
+
+function boot(){
+  applyPersonaHeader();
+  if(state.lastVisit !== todayStr() || !state.chat.length){
+    state.lastVisit = todayStr(); state.chat = []; persist();
+    morningGreeting();
+  } else {
+    addDateChip(prettyDate(todayStr()));
+    state.chat.forEach(m => m.who==='note' ? addNote(m.text,false) : addBubble(m.who, m.text, false));
+  }
+}
+if(!state.userName){
+  applyPersonaHeader();
+  openNameDrawer(); // 첫 방문: 이름부터 물어봄
 } else {
-  addDateChip(prettyDate(todayStr()));
-  state.chat.forEach(m => m.who==='note' ? addNote(m.text,false) : addBubble(m.who, m.text, false));
+  USER = state.userName;
+  boot();
 }
 </script>
 </body>
