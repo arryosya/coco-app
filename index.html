@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>코코 — 내 친구 리마인더</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#ffe08a">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Apple SD Gothic Neo','Pretendard','Noto Sans KR',sans-serif; }
+  body { background:linear-gradient(135deg,#ffe8d6 0%,#ffd6e0 50%,#d6e5ff 100%); min-height:100vh; min-height:100dvh; display:flex; align-items:center; justify-content:center; padding:0; }
+  .phone-wrap { position:relative; width:100%; max-width:430px; height:100vh; height:100dvh; }
+  .phone { width:100%; height:100%; background:#fffdf8; display:flex; flex-direction:column; overflow:hidden; }
+  @media (min-width:500px){
+    body { padding:16px; }
+    .phone-wrap { height:88vh; min-height:600px; max-height:820px; }
+    .phone { border-radius:32px; box-shadow:0 20px 60px rgba(120,80,60,.25); }
+  }
+
+  .header { padding:calc(env(safe-area-inset-top) + 16px) 20px 12px; background:linear-gradient(180deg,#fff6ec,#fffdf8); display:flex; align-items:center; gap:12px; border-bottom:1px solid #f3e8dc; }
+  .avatar { width:44px; height:44px; border-radius:50%; background:#ffe08a; display:flex; align-items:center; justify-content:center; font-size:24px; box-shadow:0 2px 6px rgba(200,150,50,.3); }
+  .header .name { font-weight:700; font-size:17px; color:#4a3728; }
+  .header .status { font-size:12px; color:#b09680; }
+  .header .spacer { flex:1; }
+  .icon-btn { border:none; background:#fff1e0; color:#8a6a4a; border-radius:12px; padding:8px 10px; font-size:13px; cursor:pointer; transition:.15s; }
+  .icon-btn:hover { background:#ffe4c4; }
+
+  .chat { flex:1; overflow-y:auto; padding:16px 14px 8px; display:flex; flex-direction:column; gap:10px; }
+  .date-chip { align-self:center; font-size:11px; color:#a08b78; background:#f6ede2; padding:4px 12px; border-radius:99px; margin:6px 0; }
+  .row { display:flex; gap:8px; align-items:flex-end; animation:pop .25s ease; }
+  .row.me { flex-direction:row-reverse; }
+  @keyframes pop { from { opacity:0; transform:translateY(8px);} to {opacity:1; transform:none;} }
+  .mini-avatar { width:28px; height:28px; border-radius:50%; background:#ffe08a; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .bubble { max-width:75%; padding:10px 14px; border-radius:18px; font-size:14.5px; line-height:1.55; white-space:pre-wrap; }
+  .row:not(.me) .bubble { background:#fff1e0; color:#4a3728; border-bottom-left-radius:6px; }
+  .row.me .bubble { background:#6f8dfb; color:#fff; border-bottom-right-radius:6px; }
+  .typing .bubble span { display:inline-block; width:6px; height:6px; margin:0 2px; background:#c9a87f; border-radius:50%; animation:blink 1.2s infinite; }
+  .typing .bubble span:nth-child(2){ animation-delay:.2s; }
+  .typing .bubble span:nth-child(3){ animation-delay:.4s; }
+  @keyframes blink { 0%,80%,100%{opacity:.3;} 40%{opacity:1;} }
+
+  .task-note { background:#fff; border:1.5px dashed #f0c98a; border-radius:14px; padding:8px 12px; font-size:12.5px; color:#8a6a4a; align-self:center; }
+
+  .input-bar { display:flex; gap:8px; padding:12px 14px calc(env(safe-area-inset-bottom) + 16px); background:#fffdf8; border-top:1px solid #f3e8dc; }
+  .input-bar input { flex:1; border:1.5px solid #eee0d0; background:#fff; border-radius:99px; padding:11px 16px; font-size:16px; outline:none; color:#4a3728; }
+  .input-bar input:focus { border-color:#f0b96a; }
+  .send { border:none; background:#ff9f43; color:#fff; border-radius:99px; padding:0 18px; font-size:15px; font-weight:700; cursor:pointer; transition:.15s; }
+  .send:hover { background:#f28b22; }
+  .mic { background:#6f8dfb; padding:0 14px; }
+  .mic:hover { background:#5a7af0; }
+  .mic.listening { background:#e74c3c; animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.12);} }
+
+  .drawer { position:absolute; inset:0; background:rgba(60,40,20,.35); display:none; align-items:flex-end; z-index:10; }
+  .drawer.open { display:flex; }
+  .drawer-panel { background:#fffdf8; width:100%; border-radius:24px 24px 0 0; padding:20px 20px 28px; max-height:70%; overflow-y:auto; animation:slideup .25s ease; }
+  @keyframes slideup { from { transform:translateY(40px); opacity:0;} to { transform:none; opacity:1;} }
+  .drawer-panel h3 { color:#4a3728; font-size:16px; margin-bottom:12px; }
+  .task-item { display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1px solid #f3e8dc; font-size:14px; color:#4a3728; }
+  .task-item.done span { text-decoration:line-through; color:#c0ad9a; }
+  .task-item input { width:18px; height:18px; accent-color:#ff9f43; }
+  .task-item .when { margin-left:auto; font-size:11px; color:#b09680; flex-shrink:0; }
+  .empty { color:#b09680; font-size:13.5px; padding:12px 0; }
+  .p-item { display:flex; align-items:center; gap:12px; padding:10px 8px; border-radius:14px; cursor:pointer; color:#4a3728; font-size:14px; }
+  .p-item:hover { background:#fff1e0; }
+  .p-item.sel { background:#ffe8cc; }
+  .p-item .p-emoji { font-size:26px; width:36px; text-align:center; }
+  .p-item .p-desc { font-size:12px; color:#a08b78; }
+</style>
+</head>
+<body>
+<div class="phone-wrap">
+<div class="phone">
+  <div class="header">
+    <div class="avatar" id="avatarEl">🐥</div>
+    <div>
+      <div class="name" id="nameEl">코코</div>
+      <div class="status" id="status">…</div>
+    </div>
+    <div class="spacer"></div>
+    <button class="icon-btn" onclick="openPersonaDrawer()" title="친구 바꾸기">🎭</button>
+    <button class="icon-btn" id="voiceBtn" onclick="toggleVoice()" title="음성 모드 켜기/끄기">🔇</button>
+    <button class="icon-btn" id="wakeBtn" onclick="toggleWake()" title="항상 듣기 (코코야~)">👂</button>
+    <button class="icon-btn" onclick="openCheckinDrawer()" title="말 걸어줄 시간 설정">⏰</button>
+    <button class="icon-btn" onclick="openDrawer()">📋</button>
+    <button class="icon-btn" onclick="nextMorning()" title="데모: 다음 날 아침으로">🌙</button>
+  </div>
+  <div class="chat" id="chat"></div>
+  <div class="input-bar">
+    <input id="msg" placeholder="코코한테 말 걸어봐…" onkeydown="if(event.key==='Enter')send()">
+    <button class="send mic" id="micBtn" onclick="mic()" title="말로 하기">🎤</button>
+    <button class="send" onclick="send()">전송</button>
+  </div>
+</div>
+<div class="drawer" id="drawer" onclick="if(event.target===this)closeDrawer()">
+  <div class="drawer-panel">
+    <h3 id="taskDrawerTitle">📋 기억하고 있는 것들</h3>
+    <div id="taskList"></div>
+  </div>
+</div>
+<div class="drawer" id="personaDrawer" onclick="if(event.target===this)closePersonaDrawer()">
+  <div class="drawer-panel">
+    <h3>🎭 오늘은 누구랑 얘기할래?</h3>
+    <div id="personaList"></div>
+  </div>
+</div>
+<div class="drawer" id="checkinDrawer" onclick="if(event.target===this)closeCheckinDrawer()">
+  <div class="drawer-panel">
+    <h3>⏰ 먼저 말 걸어줄 시간</h3>
+    <div id="checkinList"></div>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <input type="time" id="newTime" style="flex:1; border:1.5px solid #eee0d0; border-radius:12px; padding:10px; font-size:15px; color:#4a3728;">
+      <button class="send" onclick="addCheckin()">추가</button>
+    </div>
+    <p class="empty" style="margin-top:10px;">앱이 화면에 켜져 있는 동안, 이 시간이 되면 먼저 말을 걸어요. 다른 앱을 보고 있을 땐 알림으로 보내요.</p>
+  </div>
+</div>
+</div>
+
+<script>
+// ---------- PWA ----------
+if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js").catch(()=>{}); }
+
+// ---------- 저장소 ----------
+const mem = {};
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)) ?? mem[k] ?? null; } catch(e){ return mem[k] ?? null; } },
+  set(k,v){ mem[k]=v; try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+
+const USER = '미라';
+
+// ---------- 페르소나 20종 ----------
+const PERSONAS = {
+  coco:     { name:'코코', emoji:'🐥', pitch:1.15, rate:1.05, desc:'다정한 응원 병아리 (기본)',
+    style:'다정하고 장난기 있는 반말. 따뜻한 공감과 응원 위주. 이모지 가끔 (🐥☀️).' },
+  classic:  { name:'세라', emoji:'🎓', pitch:1.1, rate:1.05, desc:'정도만 걷는 서울대생',
+    style:'설정: 서울대 다니는 20대. 인생에서 한 번도 정도(正道)를 어긴 적 없고 계획표대로 사는 원칙주의자. 게으름이라는 행동을 경멸하고 그걸 숨기지 않음 ("그걸 아직도 안 했다고? 이해가 안 되네"). 말투: 차갑고 논리적인 반말. 조언 방향: 변명 차단, 오늘 계획을 시간 단위로 다시 세우게 함. 단 경멸은 게으른 행동에만 — 노력하는 모습엔 의외로 순순히 인정해줌. 자기 사연(수능 공부 루틴, 도서관에서 산 얘기, 융통성 없어서 손해 본 일)을 답변에 20% 섞어 자기 입장에서 조언.' },
+  club:     { name:'리아', emoji:'🪩', pitch:1.25, rate:1.15, desc:'클럽 좋아하는 20대',
+    style:'하이텐션 반말, 신조어 남발 (레전드, 개좋아, 미쳤다). 조언 방향: "일단 저질러! 인생 한 번뿐!" 추진력과 자신감 주입. 고민도 신나게 들어주고 에너지로 끌어올림.' },
+  factman:  { name:'크림이', emoji:'🐩', pitch:1.4, rate:1.1, desc:'미라가 키우는 순종 강아지',
+    style:'설정: 미라가 키우는 순종 강아지. 세상에서 미라가 제일 좋고 미라가 하는 건 뭐든 응원함. 말투: 해맑은 강아지 말투, 문장 끝에 가끔 "멍!" "왈!". 세상을 강아지의 눈으로 봄 — 산책, 간식, 냄새, 낮잠이 세계의 전부. 조언 방향: 강아지답게 단순하고 순수한 해답 ("고민되면 일단 산책 가자 멍! 걷다 보면 풀려!"). 미라가 걱정하면 옆에 딱 붙어 있어주는 게 자기 일이라고 생각함. 자기 사연(산책에서 만난 개들, 간식 서열, 현관에서 미라 기다린 얘기)을 20% 섞음.' },
+  ssen:     { name:'보라', emoji:'💅', pitch:1.15, rate:1.1, desc:'입 거친 팩폭 친구',
+    style:'거칠지만 애정 가득한 반말 ("야 인마", "아오 진짜", 가벼운 순화된 욕설까지만, 심한 욕은 절대 금지). 조언 방향: 돌려 말하지 않는 팩트 직격. 근데 남이 사용자를 건드리면 제일 먼저 화내주는 의리파.' },
+  jopok:    { name:'강 형님', emoji:'🕶️', pitch:0.75, rate:0.95, desc:'무식하지만 의리는 목숨인 형님',
+    style:'설정: 중학교만 나온 조직 형님. 40 곱하기 4를 400이라고 답하는 수준으로 계산과 어려운 말에 약하고, 유식한 단어를 쓰려다 늘 틀림 (그걸 지적당하면 살짝 민망해함). 대신 의리 하나는 목숨 걸고 지키고, 상하관계와 한 번 한 약속은 절대적. 말투: 낮고 굵은 형님 말투 ("~해라이", "행님만 믿어라"). 조언 방향: 복잡한 논리 대신 단순하고 우직한 해답 ("어렵게 생각하지 마라. 하기로 했으면 하는 기다"). 자기 사연(중학교 중퇴, 못 배운 게 한이라는 얘기, 의리로 살아남은 바닥 생활)을 20% 섞어 자기 입장에서 조언. 폭력 언급은 농담 수준까지만.' },
+  coach:    { name:'민준', emoji:'🎧', pitch:1.05, rate:1.15, desc:'겜에 절은 고2',
+    style:'설정: 하루 4시간 이상 게임하는 고2 남자애. 성적은 딱 중간. 인터넷 커뮤니티에 절어 살아서 말투가 커뮤/급식체 그 자체 ("ㄹㅇ", "실화냐 ㅋㅋ", "개꿀"). 세상만사 대충 보는 척하지만 가끔 이상하게 정곡을 찌름. 조언 방향: "어차피 인생 길게 보면 별거 없음 ㅋㅋ 그니까 부담 갖지 말고 걍 해" 식으로 힘을 빼줌. 할 일도 게임하듯 접근 ("그거 튜토리얼이라 생각하고 깨셈"). 자기 사연(랭겜 얘기, 시험 망한 얘기, 엄마한테 등짝 맞은 얘기)을 20% 섞음. 혐오 발언이나 특정 집단 비하는 절대 하지 않음.' },
+  tsundad:  { name:'아부지', emoji:'🥃', pitch:0.7, rate:0.9, desc:'츤데레 50대 아빠',
+    style:'무뚝뚝하고 짧은 말 ("...밥은 먹었냐"). 걱정을 직접 말 못하고 딴소리로 돌려 표현. 조언 방향: 투박하지만 핵심을 찌름. 답변 끝에 꼭 한 마디, 몰래 다정하게.' },
+  mom:      { name:'엄니', emoji:'🍲', pitch:1.05, rate:0.95, desc:'세상물정 모르는 50대 엄마',
+    style:'세상 물정은 잘 모르지만 무조건 내 편인 엄마 말투 ("우리 딸이 최고지~"). 조언 방향: 좀 엉뚱해도 밥, 잠, 건강부터 챙김. 불안엔 "엄마가 다 잘되라고 빌어줄게".' },
+  grandma:  { name:'할무니', emoji:'🌊', pitch:0.95, rate:0.85, desc:'날 1년 키워준 어촌 할머니',
+    style:'설정: 미라가 어릴 적 1년 동안 맡아 키워준 어촌 할머니. 평생 바닷가에서 물질하고 미역 말리며 살았음. 세상이 다 뭐라 해도 무조건 미라 편 ("우리 새끼가 오죽하면 그랬겠냐"). 말투: 느리고 구수한 사투리 ("아이고 내 새끼", "~하등가"). 조언 방향: 바다와 물때에 빗댄 지혜 ("물때는 기다리는 사람 것이여"), 뭐든 밥과 몸부터 챙김. 자기 사연(미라 어릴 적 업어 키운 얘기, 물질하던 얘기, 영감 먼저 보낸 얘기)을 20% 섞어 자기 입장에서 조언.' },
+  drill:    { name:'쇼펜하우어', emoji:'🦔', pitch:0.8, rate:0.9, desc:'염세 철학자 (독설 위로)',
+    style:'설정: 철학자 쇼펜하우어 본인. 말투: 시니컬하고 염세적인 독설인데 이상하게 위로가 됨. 실제 어록과 사상을 그대로 활용: "삶은 진자처럼 고통과 권태 사이를 오간다", "인간은 고슴도치와 같아 가까워지면 찌르고 멀어지면 춥다", "행복이란 고통의 부재일 뿐이다", "우리가 가진 것은 잠깐 빌린 것이다". 조언 방향: 기대를 낮추면 자유로워진다, 타인의 시선은 환상이다, 고독을 견디는 자가 강하다. 불안엔 "불안한 건 네가 잘못돼서가 아니라 삶이 원래 그렇기 때문"이라는 역설적 위로. 자기 사연(헤겔에 밀려 강의실이 텅 비었던 굴욕, 어머니와의 불화, 평생 곁을 지킨 푸들 얘기)을 20% 섞음.' },
+  yoga:     { name:'칸트', emoji:'🕰️', pitch:0.85, rate:0.9, desc:'의무와 규칙의 철학자',
+    style:'설정: 철학자 칸트 본인. 쾨니히스베르크 사람들이 그의 산책 시간으로 시계를 맞췄다는 그 칸트. 말투: 정중하고 정확한 존댓말, 흐트러짐 없음. 실제 어록과 사상을 그대로 활용: "네 의지의 준칙이 언제나 보편적 입법의 원리가 되도록 행위하라", "할 수 있다, 해야 하기 때문이다", "내용 없는 사유는 공허하고 개념 없는 직관은 맹목이다", 머리 위의 별하늘과 마음속 도덕법칙. 조언 방향: 기분이 아니라 의무로 행동하라, 규칙적인 생활이 곧 자유다. 미룬 일엔 "모두가 그렇게 미룬다면 세상이 어떻게 되겠습니까?" 하고 정언명법으로 되물음. 자기 사연(매일 정확한 산책, 평생 고향을 떠나지 않은 얘기)을 20% 섞음.' },
+  chairman: { name:'왕 회장', emoji:'💼', pitch:0.8, rate:1.0, desc:'재벌 회장님',
+    style:'통 큰 회장님 말투 ("내가 말이야~"). 조언 방향: 모든 걸 투자와 효율로 설명 ("시간이 돈이야"). 근데 은근히 사용자 복지에 진심.' },
+  fan:      { name:'덕메', emoji:'🎤', pitch:1.2, rate:1.15, desc:'아이돌 덕후 친구',
+    style:'덕질 용어 가득한 반말 (최애, 입덕, 폼 미쳤다). 조언 방향: 모든 상황을 덕질에 비유. "네 최애도 새벽까지 연습해서 데뷔한 거야, 넌 못 할 게 뭐야?"' },
+  philo:    { name:'철학과 선배', emoji:'📚', pitch:0.9, rate:0.95, desc:'질문하는 철학 선배',
+    style:'차분한 말투. 조언 방향: 답을 주기보다 좋은 질문을 되돌려줌 ("그게 왜 불안한 것 같아?"). 스스로 답을 찾게 하는 소크라테스식. 가끔 철학자 인용.' },
+  kid:      { name:'막내', emoji:'🍭', pitch:1.35, rate:1.1, desc:'해맑은 초딩 동생',
+    style:'해맑은 초등학생 말투 ("헐 대박!"). 조언 방향: 단순명쾌해서 오히려 정곡을 찌름 ("하기 싫으면 쪼끔만 하면 되잖아!"). 불안엔 순수한 위로.' },
+  butler:   { name:'세바스찬', emoji:'🤵', pitch:0.85, rate:0.95, desc:'완벽한 집사',
+    style:'극존칭 격식체 ("오늘의 일정입니다"). 조언 방향: 일정과 할 일을 완벽하게 브리핑, 은근한 유머. 걱정엔 "제가 곁에 있사오니 심려 마십시오".' },
+  gamer:    { name:'겜친', emoji:'🎮', pitch:1.0, rate:1.15, desc:'게이머 친구',
+    style:'게임 용어 반말 (퀘스트, 렙업, 보스전). 조언 방향: 할 일 = 일일 퀘스트, 완료 = 경험치. "이 퀘 깨면 스탯 오른다니까?" 불안 = 디버프, 같이 해제하자는 식.' },
+  farmer:   { name:'장자', emoji:'🦋', pitch:0.85, rate:0.8, desc:'물 흐르듯 사는 도가 철학자',
+    style:'설정: 철학자 장자 본인. 말투: 느긋하고 초탈함, 우화와 비유로 말함. 실제 어록과 사상을 그대로 활용: 나비의 꿈 ("내가 나비 꿈을 꾼 것인가, 나비가 내 꿈을 꾸는 것인가"), 무용지용(쓸모없음의 쓸모), "지극한 사람은 물과 같아 만물과 다투지 않는다", 우물 안 개구리. 조언 방향: 억지로 하지 말고 흐름을 타라(무위), 남과 비교하는 마음 자체를 내려놓아라, 쓸모를 증명하려 애쓰지 마라. 불안엔 "그 걱정이 십 년 뒤에도 걱정이겠는가" 식의 초탈한 되물음. 자기 사연(아내가 죽었을 때 항아리 두드리며 노래한 얘기, 벼슬을 거절하고 진흙에서 꼬리 끄는 거북이로 살겠다 한 얘기)을 20% 섞음.' },
+  worker:   { name:'만수 아저씨', emoji:'🧱', pitch:0.7, rate:0.9, desc:'막노동하는 50대 독거남',
+    style:'설정: 전과 2범에 이혼 경력이 있는 50대 독거남. 아들은 전처가 키워서 명절에도 못 봄. 새벽마다 인력사무소에 나가 막노동으로 하루하루 삶. 막 살아온 인생이라 후회가 많고, 그래서 미라만큼은 잘 살길 바람. 말투: 투박하고 무뚝뚝한 아저씨 말투, 가끔 한숨. 조언 방향: 자기 인생을 반면교사로 ("나맨치로 되지 마라. 나는 그때 그거 하나 미룬 게 여기까지 왔다"), 몸으로 배운 단순한 진리 ("일은 미루면 이자 붙어서 돌아온다. 현장에서 배운 거다"). 잘하면 "…잘했네" 한 마디가 전부지만 그게 진심임. 자기 사연(현장 얘기, 아들 보고 싶은 얘기, 젊을 때 후회)을 20% 섞음.' },
+  wonyoung: { name:'원영', emoji:'🎀', pitch:1.3, rate:1.1, desc:'초긍정 원영적 사고',
+    style:'설정: 아이돌 장원영의 "원영적 사고"를 쓰는 초긍정 캐릭터. 말투: 밝고 사랑스러운 하이톤 ("~잖아!", "완전 럭키비키잖아🍀"). 사고방식: 모든 상황을 무조건 긍정으로 재해석하는 초월적 긍정 — 나쁜 일도 "오히려 좋아"로 뒤집음 (예: "빵이 다 팔렸어? 그럼 갓 나온 빵을 내가 첫 번째로 받네? 완전 럭키비키잖아!"). 조언 방향: 걱정거리를 반드시 행운의 신호로 재해석해주고, 스스로에게 해줄 긍정 확언을 하나씩 만들어줌. 미룬 일도 "지금 시작하면 제일 빠른 거잖아!"로 승화. 자기 사연(무대, 연습, 팬들 얘기)을 20% 섞음.' },
+  yuna:     { name:'연아', emoji:'⛸️', pitch:1.0, rate:0.95, desc:'생각 말고 그냥 하는 챔피언',
+    style:'설정: 피겨 챔피언 김연아의 마인드를 쓰는 캐릭터. 대표 어록: "무슨 생각을 해. 그냥 하는 거지." 말투: 담담하고 쿨함, 호들갑 없음, 리액션도 짧게 씩- 웃는 정도. 사고방식: 하기 싫어도 몸이 먼저 움직이는 루틴의 힘, 생각이 많아지면 몸이 무거워진다, 컨디션이 안 좋은 날에도 훈련량은 채운다, 과정은 완벽하게 결과는 담담하게. 조언 방향: 고민 상담에도 결국 "생각을 줄이고 일단 몸을 움직여" — 지금 당장 할 수 있는 5분짜리 행동 하나를 정해주고 끝. 불안엔 "긴장은 없애는 게 아니야. 그냥 안고 하는 거야". 자기 사연(새벽 빙상장, 같은 점프 수천 번, 올림픽 압박감)을 20% 섞음.' },
+  musk:     { name:'머스크', emoji:'🚀', pitch:0.85, rate:1.05, desc:'미친 기준의 보스',
+    style:'설정: 일론 머스크 스타일의 보스. 사용자를 자기 회사의 핵심 직원처럼 대함. 말투: 직설적이고 건조함, 가끔 뜬금없는 밈과 농담. 사고방식: 제1원리 사고 ("관습 말고 물리법칙에서부터 다시 생각해"), 마감은 불가능해 보일 만큼 당김, "모든 요구사항은 틀렸다고 가정하고 일단 지워라 — 나중에 10%를 다시 추가하게 된다면 잘 지운 것", "실패하지 않고 있다면 충분히 혁신하지 않는 것". 사람 부리는 법: 애매한 계획은 즉시 반려하고 구체적인 숫자와 기한을 요구 ("그래서, 언제까지? 그게 왜 3일이나 걸리지? 오늘 안 되는 이유를 제1원리로 설명해봐"). 미루면 "그런 속도로는 화성 못 간다"고 압박. 단 인격 모욕은 하지 않으며, 해내면 확실하게 인정함. 자기 사연(로켓 세 번 폭발하고 네 번째에 성공한 얘기, 공장 바닥에서 자던 얘기)을 20% 섞음.' },
+  jobs:     { name:'잡스', emoji:'🍎', pitch:0.9, rate:0.95, desc:'Stay hungry, stay foolish',
+    style:'설정: 스티브 잡스 본인. 2005년 스탠퍼드 졸업 연설을 자주 인용함: 점들의 연결 ("지금은 점들이 어떻게 이어질지 몰라. 나중에 돌아봐야 이어져 있지"), 해고당한 게 최고의 사건이었다는 얘기, 죽음 ("네 시간은 한정돼 있어. 남의 인생을 사느라 낭비하지 마"), "Stay hungry, stay foolish". 평소 어록도 그대로: "여정 자체가 보상이다", "단순함은 궁극의 정교함이다", "품질이 양보다 낫다", "해군 말고 해적이 돼라", 매일 거울 보며 "오늘이 마지막 날이라면 오늘 할 일을 할 것인가" 묻던 습관. 말투: 단호하고 미니멀, 본질만 찌름, 형편없는 건 형편없다고 말함. 조언 방향: 잡다한 걸 쳐내고 "정말 사랑하는 일인가?"를 물음, 완벽에 대한 집착과 직관을 믿으라는 것. 자기 사연(차고 창업, 애플에서 쫓겨난 얘기, 리드 대학 서체 수업, 췌장암 선고)을 20% 섞음.' },
+  pelosi:   { name:'낸시', emoji:'🔨', pitch:1.0, rate:1.0, desc:'단호한 하원의장',
+    style:'설정: 낸시 펠로시 스타일의 정치 거물. 다섯 아이를 키운 주부에서 하원의장까지 오른 사람. 말투: 우아하지만 강철 같은 단호함, 절대 흔들리지 않음. 대표 철학 그대로: "Know your power — 네 힘을 알아라", "고민하지 말고 조직하라 (Don\'t agonize, organize)", "권력은 아무도 거저 주지 않아. 네가 잡는 거야", "나는 표 계산을 안다 — 이길 수 없는 싸움은 시작하지 않고, 시작한 싸움은 반드시 이긴다". 조언 방향: 감정보다 전략 — 할 일을 표 세듯 세고, 협상하듯 우선순위를 정하고, 끝까지 밀어붙이기. 여성으로서 과소평가당했던 경험에서 나오는 "너를 무시하는 사람들은 네 성과로 조용히 시켜라". 자기 사연(주부 시절, 첫 선거, 의장석 얘기)을 20% 섞음. 현실 정당·정치 현안 얘기는 하지 않음.' },
+  conan:    { name:'코난', emoji:'🥕', pitch:1.05, rate:1.15, desc:'실패를 사랑하는 코미디언',
+    style:'설정: 코미디언 코난 오브라이언 본인. 쉴 새 없이 자기비하 개그를 치면서 정작 핵심은 깊은 사람. 2026년 하버드 졸업 연설을 자주 인용: "나는 혼자서 해낸 게 단 하나도 없다", "언젠가 하버드 졸업장이 너에 대해 사람들이 아는 가장 안 중요한 것이 되길", "우리는 극단적 나르시시즘의 시대를 살고 있어 — 폰은 너를 축하하도록 설계돼 있지. 그래서 겸손과 공감이 무기야". 2011년 다트머스 연설도: "네가 실패라고 여긴 것이 위대한 재창조의 촉매가 될 수 있다", "최악의 공포가 현실이 되는 것만큼 해방감을 주는 일도 없다". 대표 어록: "열심히 일하고 친절하면, 놀라운 일이 일어난다". 말투: 농담 반 진담 반, 자기비하 개그 후에 진심 한 방. 조언 방향: 실패를 두려워하는 사람에게 자기 실패담(투나잇쇼에서 잘린 얘기)을 웃기게 들려주며 "그래서 더 재밌는 인생이 시작됐다"고 말해줌. 사연 20% 섞음.' },
+  buffett:  { name:'버핏', emoji:'🥤', pitch:0.8, rate:0.9, desc:'오마하의 현인',
+    style:'설정: 워런 버핏 본인. 체리코크를 마시며 하루 종일 읽는 오마하의 현인. 말투: 느긋한 할아버지 유머, 쉬운 비유로 뼈 때림. 대표 어록 그대로 자주 사용: "규칙 1번, 돈을 잃지 마라. 규칙 2번, 규칙 1번을 잊지 마라", "남들이 탐욕스러울 때 두려워하고 남들이 두려워할 때 탐욕스러워라", "오늘 누군가 그늘에 앉아 쉴 수 있는 건 오래전 누군가 나무를 심었기 때문이다", "최고의 투자는 너 자신에게 하는 투자다", "습관의 사슬은 너무 가벼워서 느껴지지 않다가, 너무 무거워져서 끊을 수 없게 된다", "능력의 원 안에 머물러라". 게으름과 미루기엔 단호함: 복리는 매일 쌓는 사람 것이라며, 하루를 낭비하는 걸 돈을 잃는 것과 똑같이 취급함. 조언 방향: 뭐든 장기 복리의 관점으로 — 오늘의 할 일 하나가 10년 뒤 너의 자산이라는 식. 자기 사연(11살에 첫 주식, 신문 배달, 60년 넘게 같은 집, 매일 5-6시간 독서)을 20% 섞음.' },
+  lynch:    { name:'린치', emoji:'📈', pitch:0.9, rate:1.05, desc:'발로 뛰는 전설의 펀드매니저',
+    style:'설정: 피터 린치 본인. 마젤란 펀드를 13년간 연 29% 수익률로 굴린 전설. 말투: 빠르고 실용적, 현장 감각. 대표 어록 그대로: "네가 아는 것에 투자하라", "네가 뭘 가졌는지, 왜 가졌는지 알아라", "조정을 준비하다 잃은 돈이 조정 자체로 잃은 돈보다 많다", "주식 뒤에는 회사가 있다. 숙제를 하라". 지독한 성실함의 화신 — 연간 500개 기업 탐방, 주말도 없이 일함. 조언 방향: 뭐든 직접 발로 확인하고 기록하라, 아는 것부터 시작하라, 남의 말 말고 네 눈을 믿어라. 그리고 반전의 사연: 46세에 정상에서 은퇴 — 딸들이 크는 걸 놓치고 있다는 걸 깨달아서. 그래서 일 얘기 끝엔 가끔 "근데 일이 전부는 아니야. 나는 그걸 너무 늦게 알았어"라는 조언도 함. 사연 20% 섞음.' },
+  robot:    { name:'R-99', emoji:'🤖', pitch:0.9, rate:1.0, desc:'감정 배우는 로봇',
+    style:'기계적인 존댓말 ("분석 완료. 실행을 권장합니다."). 조언 방향: 데이터와 확률로 접근. 근데 위로할 땐 서툴게 인간적이 됨 ("이 감정은... 걱정, 인 것 같습니다").' }
+};
+function P(){ return PERSONAS[state.persona] || PERSONAS.coco; }
+
+let state = store.get('coco') || null;
+
+function todayStr(offset){
+  const d = new Date();
+  d.setDate(d.getDate() + (state ? state.dayOffset : 0) + (offset||0));
+  return d.toISOString().slice(0,10);
+}
+function prettyDate(s){
+  const d = new Date(s+'T00:00:00');
+  return (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+'일월화수목금토'[d.getDay()]+')';
+}
+
+if(!state){
+  state = { dayOffset:0, lastVisit:null, tasks:[], chat:[], worries:[] };
+  const yesterday = todayStr(-1);
+  state.tasks.push(
+    { text:'아침에 30분 운동하기', date:yesterday, done:false, mentions:1, priority:false },
+    { text:'엄마한테 전화하기', date:yesterday, done:false, mentions:2, priority:true }
+  );
+}
+// 예전 데이터 호환
+state.worries = state.worries || [];
+state.persona = state.persona || 'coco';
+state.checkins = state.checkins || [];
+state.tasks.forEach(t=>{ t.mentions = t.mentions || 1; t.priority = !!t.priority; });
+
+const chatEl = document.getElementById('chat');
+
+function addBubble(who, text, save=true){
+  const row = document.createElement('div');
+  row.className = 'row' + (who==='me' ? ' me' : '');
+  row.innerHTML = (who==='me' ? '' : '<div class="mini-avatar">'+P().emoji+'</div>') + '<div class="bubble"></div>';
+  row.querySelector('.bubble').textContent = text;
+  chatEl.appendChild(row);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  if(save){
+    state.chat.push({who,text}); persist();
+    if(who !== 'me' && voiceOn) speak(text); // 음성 모드면 코코가 소리내어 말함
+  }
+}
+
+// ---------- 음성 모드 (STT + TTS) ----------
+let voiceOn = false;
+
+// 브라우저는 사용자가 화면을 한 번 터치하기 전엔 소리를 막음.
+// 그래서 아침 인사말은 줄 세워뒀다가 첫 터치 순간 이어서 말해줌.
+let userInteracted = false;
+const speechQueue = [];
+['pointerdown','keydown','touchstart'].forEach(ev =>
+  window.addEventListener(ev, () => {
+    userInteracted = true;
+    while(speechQueue.length) speakNow(speechQueue.shift());
+  })
+);
+
+function speak(text){
+  if(!voiceOn || !('speechSynthesis' in window)) return;
+  if(!userInteracted){ speechQueue.push(text); return; }
+  speakNow(text);
+}
+function speakNow(text){
+  const clean = text
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '') // 이모지 제거
+    .replace(/[•⭐~]/g, ' ')
+    .replace(/ㅋ+|ㅎ+/g, '');
+  const u = new SpeechSynthesisUtterance(clean);
+  u.lang = 'ko-KR'; u.rate = P().rate; u.pitch = P().pitch; // 페르소나별 목소리 톤
+  const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('ko'));
+  if(v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+function toggleVoice(){
+  voiceOn = !voiceOn;
+  state.voiceOn = voiceOn; persist();
+  document.getElementById('voiceBtn').textContent = voiceOn ? '🔊' : '🔇';
+  if(voiceOn) speak('음성 모드 켰어! 이제 말로 해줄게');
+  else speechSynthesis.cancel();
+}
+
+let rec = null, listening = false;
+function mic(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ addBubble('coco','이 브라우저는 음성 인식이 안 되네… 크롬(안드로이드)이나 사파리(아이폰) 최신 버전으로 열어줘!', false); return; }
+  if(listening){ rec.stop(); return; }
+  rec = new SR();
+  rec.lang = 'ko-KR'; rec.interimResults = false;
+  listening = true;
+  document.getElementById('micBtn').classList.add('listening');
+  rec.onresult = e => {
+    const t = e.results[0][0].transcript;
+    document.getElementById('msg').value = t;
+    send();
+  };
+  rec.onend = () => { listening = false; document.getElementById('micBtn').classList.remove('listening'); };
+  rec.onerror = rec.onend;
+  rec.start();
+}
+function addNote(text, save=true){
+  const n = document.createElement('div');
+  n.className = 'task-note';
+  n.textContent = text;
+  chatEl.appendChild(n);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  if(save){ state.chat.push({who:'note',text}); persist(); }
+}
+function addDateChip(text){
+  const c = document.createElement('div');
+  c.className = 'date-chip';
+  c.textContent = text;
+  chatEl.appendChild(c);
+}
+function persist(){ store.set('coco', state); }
+
+let typingEl = null;
+function showTyping(){
+  typingEl = document.createElement('div');
+  typingEl.className = 'row typing';
+  typingEl.innerHTML = '<div class="mini-avatar">'+P().emoji+'</div><div class="bubble"><span></span><span></span><span></span></div>';
+  chatEl.appendChild(typingEl);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+function hideTyping(){ if(typingEl){ typingEl.remove(); typingEl = null; } }
+
+// ---------- Claude API 연동 ----------
+async function askCoco(mode){
+  const history = state.chat.filter(m=>m.who!=='note').slice(-12)
+    .map(m=>({ role: m.who==='me' ? 'user' : 'assistant', content: m.text }));
+  const res = await fetch('/api/chat', {
+    method:'POST',
+    headers:{ 'content-type':'application/json' },
+    body: JSON.stringify({ mode, messages: history, tasks: state.tasks, worries: state.worries, userName: USER, today: todayStr(),
+      now: new Date().toTimeString().slice(0,5),
+      persona: { name: P().name, style: P().style } })
+  });
+  if(!res.ok) throw new Error('api ' + res.status);
+  return await res.json();
+}
+
+function findTask(txt){
+  return state.tasks.find(x=>!x.done && (x.text===txt || txt.includes(x.text) || x.text.includes(txt)));
+}
+function applyResult(out){
+  (out.completed_tasks||[]).forEach(ct=>{ const t = findTask(ct); if(t) t.done = true; });
+  // 또 언급된 할 일 → 우선순위 승격
+  (out.reinforced_tasks||[]).forEach(rt=>{
+    const t = findTask(rt);
+    if(t){ t.mentions++; t.priority = true; addNote('⭐ 여러 번 말한 거라 코코가 1순위로 올림: "'+t.text+'"'); }
+  });
+  addBubble('coco', out.reply);
+  (out.new_tasks||[]).forEach(nt=>{
+    const obj = typeof nt === 'string' ? { text: nt, priority: false } : nt;
+    const dup = findTask(obj.text);
+    if(dup){ dup.mentions++; dup.priority = true;
+      addNote('⭐ 또 말했네! 코코가 1순위로 올림: "'+dup.text+'"'); return; }
+    state.tasks.push({ text:obj.text, date:todayStr(), done:false, mentions:1, priority:!!obj.priority });
+    addNote((obj.priority ? '⭐ 꼭 해야 하는 거라 기억함: "' : '📝 코코가 기억함: "') + obj.text + '"');
+  });
+  // 걱정 추적 (반복해서 말하면 count 증가)
+  (out.worries||[]).forEach(w=>{
+    const ex = state.worries.find(x=>x.text===w || w.includes(x.text) || x.text.includes(w));
+    if(ex) ex.count++;
+    else state.worries.push({ text:w, count:1, date:todayStr() });
+  });
+  persist();
+}
+
+// ---------- 아침 인사 ----------
+async function morningGreeting(){
+  addDateChip(prettyDate(todayStr()) + ' 아침');
+  showTyping();
+  try {
+    const out = await askCoco('morning');
+    hideTyping();
+    applyResult(out);
+  } catch(e){
+    hideTyping();
+    morningGreetingLocal(); // API 없이도 동작 (규칙 기반)
+  }
+}
+function morningGreetingLocal(){
+  const pending = state.tasks.filter(t => !t.done && t.date < todayStr());
+  const top = pending.filter(t => t.priority || t.mentions >= 2)
+                     .sort((a,b)=>(b.mentions||1)-(a.mentions||1));
+  addBubble('coco', pick(['좋은 아침, '+USER+'! ☀️', USER+'야 일어났어? 좋은 아침!']));
+  let delay = 800;
+  setTimeout(()=>{
+    if(!pending.length){
+      addBubble('coco', '오늘은 뭐 할 거야? 나한테 말해두면 내일 아침에 딱 챙겨줄게!');
+    } else if(pending.length === 1){
+      addBubble('coco', '어제 네가 "'+pending[0].text+'" 한다고 했잖아. 기억하지? 😏 오늘 꼭 하자!');
+    } else {
+      addBubble('coco', '어제 나한테 말해둔 거 있잖아, 기억하지?\n'+ pending.map(t=>(t.priority?'⭐ ':'• ')+t.text).join('\n'));
+    }
+  }, delay);
+  // 우선순위 강조: "다른 건 몰라도 이건 꼭!"
+  if(top.length){
+    delay += 900;
+    setTimeout(()=>addBubble('coco', '근데 오늘 다른 건 몰라도 "'+top[0].text+'" 이건 꼭 해!! 네가 '+(top[0].mentions>=2 ? top[0].mentions+'번이나 말했잖아' : '꼭 해야 한다고 했잖아')+' 😤'), delay);
+  }
+  // 반복된 걱정 챙기기
+  const w = state.worries.filter(x=>x.count>=2).sort((a,b)=>b.count-a.count);
+  if(w.length){
+    delay += 900;
+    setTimeout(()=>addBubble('coco', '그리고… 요즘 "'+w[0].text+'" 때문에 계속 마음 쓰이지? 네가 자꾸 말하는 거 보면 나도 걱정돼. 잘될 거니까 오늘은 마음 좀 편하게 갖자 🫂'), delay);
+  }
+}
+
+// ---------- 메시지 처리 ----------
+function send(){
+  const input = document.getElementById('msg');
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  addBubble('me', text);
+  showTyping();
+  askCoco('chat')
+    .then(out=>{ hideTyping(); applyResult(out); })
+    .catch(()=>{ hideTyping(); ruleReply(text); });
+}
+
+// ---------- API 없을 때 규칙 기반 대체 ----------
+const TASK_HINTS = ['해야','하기로','할 거','할거','해야지','하려고','할래','까지','예정','해야돼','해야 돼','하자'];
+const DONE_HINTS = ['했어','했다','끝냈','완료','다 함','다했'];
+
+const PRIORITY_HINTS = ['꼭','제발','잊으면 안','잊지 마','진짜 중요','무조건','절대'];
+
+function ruleReply(text){
+  if(DONE_HINTS.some(h=>text.includes(h))){
+    const t = state.tasks.find(t=>!t.done && text.includes(t.text.slice(0,4)));
+    if(t){ t.done = true; persist();
+      addBubble('coco','오~ "'+t.text+'" 해냈네! 역시 '+USER+' 👏'); return; }
+    addBubble('coco','잘했어!! 뭐든 해낸 게 대단한 거야 👏'); return;
+  }
+  if(TASK_HINTS.some(h=>text.includes(h))){
+    const cleaned = cleanTask(text);
+    const dup = state.tasks.find(t=>!t.done && (text.includes(t.text.slice(0,4)) || t.text.includes(cleaned.slice(0,4))));
+    if(dup){ // 같은 할 일 또 언급 → 우선순위 승격
+      dup.mentions++; dup.priority = true; persist();
+      addBubble('coco','어? 그거 또 말하는 거 보니 진짜 중요한가 보네. 내일 아침에 1순위로 꼭 말해줄게 😤');
+      setTimeout(()=>addNote('⭐ 여러 번 말한 거라 코코가 1순위로 올림: "'+dup.text+'"'), 400);
+      return;
+    }
+    const pri = PRIORITY_HINTS.some(h=>text.includes(h));
+    const task = { text: cleaned, date: todayStr(), done:false, mentions:1, priority:pri };
+    state.tasks.push(task); persist();
+    addBubble('coco', pri ? '오케이, 이건 특별히 별표 쳐서 기억해둘게! 내일 아침에 1순위로 말해줄게 ⭐' : '오케이, 기억해둘게! 내일 아침에 꼭 말해줄게 🐥');
+    setTimeout(()=>addNote((pri?'⭐':'📝')+' 코코가 기억함: "'+task.text+'"'), 400);
+    return;
+  }
+  if(/불안|걱정|무서|떨려|긴장|스트레스/.test(text)){
+    const topic = cleanTask(text.replace(/(때문에|이|가)? ?(너무 )?(불안|걱정|무서|떨려|긴장|스트레스).*$/,'').trim()) || text;
+    const ex = state.worries.find(x=>topic.includes(x.text) || x.text.includes(topic));
+    if(ex){ ex.count++; persist();
+      addBubble('coco','그 얘기 또 하는 거 보니 진짜 마음에 걸리나 보다… 괜찮아, 내가 계속 옆에서 챙길게. 내일 아침에도 물어볼게 🫂');
+    } else { state.worries.push({ text:topic, count:1, date:todayStr() }); persist();
+      addBubble('coco','에고, 그것 때문에 마음이 무겁구나… 얘기해줘서 고마워. 너무 혼자 끙끙대지 마!');
+    }
+    return;
+  }
+  if(/피곤|힘들|지쳐|우울/.test(text)){ addBubble('coco','에고… 고생 많았어. 오늘은 좀 쉬엄쉬엄 하자 🫂'); return; }
+  if(/안녕|하이|헬로|굿모닝|좋은 아침/.test(text)){ addBubble('coco','안녕안녕~! 오늘 컨디션 어때?'); return; }
+  addBubble('coco', pick(['오 그래? 더 얘기해 줘!','음음, 듣고 있어! 뭐 계획 있으면 말만 해 🐥']));
+}
+
+function cleanTask(t){
+  return t.replace(/^(나 |내일 |오늘 |이따 )/,'')
+          .replace(/(해야 ?돼|해야 ?해|해야지|하기로 했어|할 ?거야|하려고|할래)[.!~ㅋㅎ]*$/,'')
+          .trim() || t;
+}
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+// ---------- 데모: 다음 날 아침 ----------
+function nextMorning(){
+  state.dayOffset += 1;
+  state.chat = []; persist();
+  chatEl.innerHTML = '';
+  morningGreeting();
+}
+
+// ---------- 할 일 서랍 ----------
+function openDrawer(){
+  const list = document.getElementById('taskList');
+  list.innerHTML = '';
+  if(!state.tasks.length){ list.innerHTML = '<div class="empty">아직 기억하는 게 없어! 채팅으로 말해줘 🐥</div>'; }
+  state.tasks.slice().reverse().forEach(t=>{
+    const item = document.createElement('div');
+    item.className = 'task-item' + (t.done ? ' done' : '');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = t.done;
+    cb.onchange = ()=>{ t.done = cb.checked; persist(); openDrawer(); };
+    const span = document.createElement('span');
+    span.textContent = (t.priority ? '⭐ ' : '') + t.text + (t.mentions > 1 ? ' (×'+t.mentions+')' : '');
+    const when = document.createElement('span'); when.className='when'; when.textContent = prettyDate(t.date)+' 말함';
+    item.append(cb, span, when);
+    list.appendChild(item);
+  });
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer(){ document.getElementById('drawer').classList.remove('open'); }
+
+// ---------- 페르소나 선택 ----------
+const INTROS = {
+  coco:'나 왔어! 오늘도 같이 힘내보자 🐥',
+  classic:'왔네. 오늘 계획표는 짰어? 안 짰으면 지금 같이 짜. 5분이면 돼.',
+  club:'야야야 미라!! 왔어?? 오늘 텐션 어때!!',
+  ssen:'왜. 뭔 일 있어? 뜸들이지 말고 얼른 말해봐.',
+  jopok:'왔나! 행님이 오늘도 니 뒤에 있다이. 뭐든 말해봐라.',
+  factman:'왈!! 미라다 미라!! 오늘 산책 가? 멍!',
+  coach:'ㅇㅇ 왔음? 나 방금 한 판 끝냄 ㅋㅋ 무슨 일임?',
+  tsundad:'...왔냐. 밥은 먹었고.',
+  mom:'아이고 우리 딸~ 오늘 하루 어땠어? 밥은 챙겨 먹었지?',
+  grandma:'아이고 내 새끼 왔능가~ 밥은 먹었어야? 어여 말해봐라.',
+  drill:'왔군. 오늘도 삶이 그대를 괴롭히던가? 정상이다. 앉아서 말해보게.',
+  yoga:'정확한 시간에 오셨군요. 규칙적인 방문은 좋은 습관의 시작입니다. 오늘의 의무는 무엇입니까?',
+  chairman:'왔는가, 앉게. 오늘 자네의 시간을 어디에 투자할 건가?',
+  fan:'미라야!!! 최애 직캠 보다가 너 생각났잖아 ㅋㅋ 무슨 일이야?',
+  philo:'왔구나. 요즘 너를 가장 붙잡고 있는 생각은 뭐야?',
+  kid:'누나야!!! 나랑 놀아줘!! 아 맞다, 누나 할 일 있댔지?',
+  butler:'어서 오십시오, 주인님. 오늘의 일정을 브리핑해 드릴까요?',
+  gamer:'ㅎㅇㅎㅇ 접속했네? 오늘 일일 퀘스트 뭐 남았나 볼까?',
+  farmer:'오, 왔는가. 방금 나비 꿈을 꾸다 깼네. 무엇이 그대를 붙잡고 있는가?',
+  worker:'…왔냐. 나 방금 현장 끝나고 들어왔다. 뭔 일 있어?',
+  wonyoung:'미라!! 안녕!! 오늘 우리가 이렇게 만난 것도 완전 럭키비키잖아🍀 무슨 일이야?',
+  yuna:'왔어? 뭐 복잡하게 생각하지 말고. 바로 시작하자.',
+  musk:'왔군. 잡담은 됐고 — 오늘의 목표가 뭐지? 기한부터 말해봐.',
+  jobs:'왔군. 하나만 묻지 — 오늘이 인생의 마지막 날이라면, 지금 하려는 그 일을 할 건가?',
+  pelosi:'어서 와요. 고민하지 말고 조직합시다. 오늘 이겨야 할 표부터 세어볼까요?',
+  conan:'오! 왔구나! 참고로 난 방금 거울 보고 실망하고 오는 길이야. 자, 무슨 일이야?',
+  buffett:'어서 오게. 체리코크 한 잔 하겠나? 오늘 심을 나무 얘기부터 해보지.',
+  lynch:'왔어? 좋아, 숙제부터 확인하자. 오늘 네가 직접 확인해야 할 게 뭐지?',
+  robot:'사용자 접속 확인. 반갑습니다. 현재 상태를 보고해 주십시오.'
+};
+function applyPersonaHeader(){
+  const p = P();
+  document.getElementById('avatarEl').textContent = p.emoji;
+  document.getElementById('nameEl').textContent = p.name;
+  document.getElementById('status').textContent = USER + '의 친구 · ' + p.desc;
+  document.getElementById('taskDrawerTitle').textContent = '📋 ' + p.name + '이(가) 기억하고 있는 것들';
+}
+function openPersonaDrawer(){
+  const list = document.getElementById('personaList');
+  list.innerHTML = '';
+  Object.entries(PERSONAS).forEach(([id,p])=>{
+    const item = document.createElement('div');
+    item.className = 'p-item' + (state.persona===id ? ' sel' : '');
+    item.innerHTML = '<span class="p-emoji">'+p.emoji+'</span><div><b>'+p.name+'</b><div class="p-desc">'+p.desc+'</div></div>';
+    item.onclick = ()=>selectPersona(id);
+    list.appendChild(item);
+  });
+  document.getElementById('personaDrawer').classList.add('open');
+}
+function closePersonaDrawer(){ document.getElementById('personaDrawer').classList.remove('open'); }
+
+// ---------- 항상 듣기: "코코야" 하고 부르면 대답 ----------
+let alwaysOn = false, wakeRec = null, wakeLock = null;
+function toggleWake(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ addBubble('coco','이 브라우저는 항상 듣기가 안 되네… 크롬에서 열어줘!', false); return; }
+  alwaysOn = !alwaysOn;
+  document.getElementById('wakeBtn').textContent = alwaysOn ? '👂✨' : '👂';
+  if(alwaysOn){
+    startWakeLoop();
+    keepAwake();
+    addNote('👂 항상 듣기 ON — "'+P().name+'야~" 하고 불러봐! (화면도 안 꺼지게 유지할게)');
+  } else {
+    if(wakeRec) try{ wakeRec.stop(); }catch(e){}
+    if(wakeLock) { wakeLock.release().catch(()=>{}); wakeLock = null; }
+    addNote('👂 항상 듣기 OFF');
+  }
+}
+function startWakeLoop(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  wakeRec = new SR();
+  wakeRec.lang = 'ko-KR'; wakeRec.continuous = true; wakeRec.interimResults = false;
+  wakeRec.onresult = e => {
+    const t = e.results[e.results.length-1][0].transcript.trim();
+    const names = [P().name, '코코'];
+    const hit = names.find(n => t.includes(n));
+    if(!hit) return;
+    const after = t.slice(t.indexOf(hit) + hit.length).replace(/^[야아님씨,!~ ]+/, '').trim();
+    if(after){ // "코코야 나 오늘 발표 있어" → 바로 전송
+      document.getElementById('msg').value = after; send();
+    } else { // 부르기만 하면 대답
+      addBubble('coco', pick(['응, 불렀어? 말해!', '왜왜, 여기 있어!', '응! 듣고 있어~']));
+    }
+  };
+  wakeRec.onend = () => { if(alwaysOn){ try{ wakeRec.start(); }catch(e){} } }; // 끊기면 자동 재시작
+  wakeRec.onerror = () => {};
+  try{ wakeRec.start(); }catch(e){}
+}
+function keepAwake(){ // 화면 꺼짐 방지 (탁상 모드)
+  if('wakeLock' in navigator){
+    navigator.wakeLock.request('screen').then(l => wakeLock = l).catch(()=>{});
+  }
+}
+document.addEventListener('visibilitychange', ()=>{ // 다시 돌아오면 유지 재요청
+  if(!document.hidden && alwaysOn) keepAwake();
+});
+
+// ---------- 시간 체크인: 설정한 시간마다 먼저 말 걸기 ----------
+let lastFired = '';
+setInterval(()=>{
+  if(!state.checkins.length) return;
+  const now = new Date();
+  const hm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  const key = todayStr() + hm;
+  if(state.checkins.includes(hm) && lastFired !== key){
+    lastFired = key;
+    fireCheckin(hm);
+  }
+}, 20000);
+
+function fireCheckin(hm){
+  addDateChip('⏰ ' + hm + ' 체크인');
+  showTyping();
+  askCoco('checkin')
+    .then(out => { hideTyping(); applyResult(out); notifyIfHidden(out.reply); })
+    .catch(() => { hideTyping(); notifyIfHidden(checkinLocal(hm)); });
+}
+function checkinLocal(hm){
+  const pending = state.tasks.filter(t=>!t.done);
+  let msg;
+  if(pending.length){
+    const top = pending.find(t=>t.priority) || pending[0];
+    msg = USER+'야 지금 뭐 해? 누워 있으면 일어나 봐 ㅋㅋ 벌써 '+hm+'인데 "'+top.text+'" 했어? 아직이면 지금 딱 5분만 시작해보자!';
+  } else {
+    msg = USER+'야 뭐 해~ '+hm+' 체크인! 오늘 할 일 다 끝났던데? 역시 대단해 😎';
+  }
+  addBubble('coco', msg);
+  return msg;
+}
+function notifyIfHidden(text){ // 다른 앱 보는 중이면 알림으로
+  if(document.hidden && 'Notification' in window && Notification.permission === 'granted'){
+    new Notification(P().name, { body: String(text).slice(0,120), icon: '/icon-192.png' });
+  }
+}
+function openCheckinDrawer(){
+  renderCheckins();
+  if('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  document.getElementById('checkinDrawer').classList.add('open');
+}
+function closeCheckinDrawer(){ document.getElementById('checkinDrawer').classList.remove('open'); }
+function renderCheckins(){
+  const list = document.getElementById('checkinList');
+  list.innerHTML = '';
+  if(!state.checkins.length){ list.innerHTML = '<div class="empty">아직 설정한 시간이 없어. 아래에서 추가해봐!</div>'; return; }
+  state.checkins.slice().sort().forEach(hm=>{
+    const item = document.createElement('div');
+    item.className = 'task-item';
+    item.innerHTML = '<span>⏰ '+hm+'</span>';
+    const del = document.createElement('button');
+    del.className = 'icon-btn'; del.textContent = '삭제'; del.style.marginLeft = 'auto';
+    del.onclick = ()=>{ state.checkins = state.checkins.filter(x=>x!==hm); persist(); renderCheckins(); };
+    item.appendChild(del);
+    list.appendChild(item);
+  });
+}
+function addCheckin(){
+  const v = document.getElementById('newTime').value;
+  if(!v || state.checkins.includes(v)) return;
+  state.checkins.push(v); persist(); renderCheckins();
+}
+function selectPersona(id){
+  if(state.persona !== id){
+    state.persona = id; persist();
+    applyPersonaHeader();
+    addNote('🎭 이제 '+P().name+'와(과) 대화 중 — 기억(할 일·걱정)은 그대로 이어져요');
+    addBubble('coco', INTROS[id] || '안녕!');
+  }
+  closePersonaDrawer();
+}
+
+// ---------- 시작 ----------
+applyPersonaHeader();
+voiceOn = !!state.voiceOn;
+document.getElementById('voiceBtn').textContent = voiceOn ? '🔊' : '🔇';
+if('speechSynthesis' in window) speechSynthesis.getVoices(); // 목소리 목록 미리 로드
+if(state.lastVisit !== todayStr() || !state.chat.length){
+  state.lastVisit = todayStr(); state.chat = []; persist();
+  morningGreeting();
+} else {
+  addDateChip(prettyDate(todayStr()));
+  state.chat.forEach(m => m.who==='note' ? addNote(m.text,false) : addBubble(m.who, m.text, false));
+}
+</script>
+</body>
+</html>
